@@ -1,0 +1,132 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Design-system tokens ─────────────────────────────────────── */
+:root {
+  --canvas:        #F4F5F4;
+  --surface:       #FFFFFF;
+  --surface-2:     #F7F8F7;
+  --surface-3:     #F0F1F0;
+  --sidebar:       #FFFFFF;
+  --ink:           #231F20;
+  --ink-2:         #3A3B3E;
+  --ink-3:         #85878E;
+  --line:          #E6E7E6;
+  --line-strong:   #D5D6D5;
+  --shadow-pop:    0 8px 28px rgba(14,30,62,0.12);
+  --shadow-xs:     0 1px 2px rgba(0,0,0,0.04);
+  /* Financial blue */
+  --accent:        #1570EF;
+  --accent-hover:  #1D4ED8;
+  --accent-active: #1E40AF;
+  --accent-soft:   #E5EFFC;
+  --accent-line:   #1570EF;
+  /* Aliases kept for shared components that use --fin-accent */
+  --fin-accent:       #1570EF;
+  --fin-accent-hover: #1D4ED8;
+  --fin-accent-soft:  #E5EFFC;
+  /* Status */
+  --ok:       #018649;
+  --ok-soft:  #E6F7EC;
+  --warn:     #B5710B;
+  --warn-soft:#FFF4E8;
+  --bad:      #C7203F;
+  --bad-soft: #FFEEF2;
+  --infoc:    #1570EF;
+  --info-soft:#E5EFFC;
+}
+
+.dark {
+  --canvas:      #0C0D0E;
+  --surface:     #161719;
+  --surface-2:   #1E2023;
+  --surface-3:   #25282B;
+  --sidebar:     #101113;
+  --ink:         #F4F5F6;
+  --ink-2:       #C2C5CA;
+  --ink-3:       #898C92;
+  --line:        #2A2D31;
+  --line-strong: #383C41;
+  --accent:      #5AA2F7;
+  --accent-hover:#3B82F6;
+  --accent-soft: rgba(90,162,247,0.15);
+  --fin-accent:      #5AA2F7;
+  --fin-accent-hover:#3B82F6;
+  --fin-accent-soft: rgba(90,162,247,0.15);
+  --ok:       #3FCB7A;
+  --ok-soft:  rgba(63,203,122,0.15);
+  --warn:     #F2A33D;
+  --warn-soft:rgba(242,163,61,0.15);
+  --bad:      #FF5C78;
+  --bad-soft: rgba(255,92,120,0.15);
+}
+
+@layer base {
+  html { color-scheme: light; }
+  html.dark { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    @apply antialiased transition-colors duration-200;
+    font-family: "Red Hat Display", Inter, system-ui, sans-serif;
+    background: var(--canvas);
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection { background-color: #1570EF; color: #ffffff; }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 font-semibold rounded-[8px] transition-all duration-150 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed;
+    font-family: "Red Hat Display", system-ui, sans-serif;
+    font-size: 14px; height: 40px; padding: 0 16px;
+    border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer;
+  }
+  .btn:hover { background: var(--surface-2); }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 font-semibold rounded-[8px] transition-all duration-150 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed text-white active:scale-[0.98];
+    background: var(--accent); border: 1px solid var(--accent); font-size: 14px; height: 40px; padding: 0 16px;
+  }
+  .btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 font-semibold rounded-[8px] transition-all duration-150 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed;
+    background: var(--surface-2); border: 1px solid var(--line); color: var(--ink-2); font-size: 14px; height: 40px; padding: 0 16px;
+  }
+  .btn-secondary:hover { background: var(--surface-3); }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+  }
+
+  .skeleton {
+    background: linear-gradient(90deg, var(--surface-2) 25%, var(--surface-3) 50%, var(--surface-2) 75%);
+    background-size: 400px 100%;
+    @apply animate-shimmer rounded;
+  }
+
+  .delta-good { @apply inline-flex items-center gap-1 rounded-full font-bold; font-size: 12px; padding: 2px 8px; background: var(--ok-soft); color: var(--ok); }
+  .delta-bad  { @apply inline-flex items-center gap-1 rounded-full font-bold; font-size: 12px; padding: 2px 8px; background: var(--bad-soft); color: var(--bad); }
+
+  .live-dot {
+    @apply relative flex-none rounded-full;
+    width: 8px; height: 8px; background: var(--ok);
+  }
+  .live-dot::after {
+    content: ""; @apply absolute inset-0 rounded-full border-2 opacity-50 animate-pingDot;
+    border-color: var(--ok); inset: -4px;
+  }
+
+  .input {
+    @apply w-full transition-all duration-150 focus:outline-none;
+    background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px;
+    color: var(--ink); font-family: "Red Hat Display", system-ui, sans-serif;
+    font-size: 14px; height: 40px; padding: 0 14px;
+  }
+  .input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(21,112,239,0.20); }
+  .input::placeholder { color: var(--ink-3); }
+}
