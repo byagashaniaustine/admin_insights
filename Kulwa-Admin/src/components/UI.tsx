@@ -1,5 +1,51 @@
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 
+export function KpiCardSkeleton() {
+  return (
+    <div className="card p-4 flex flex-col gap-3">
+      <div className="flex items-center justify-between">
+        <div className="skeleton h-3 w-20 rounded" />
+        <div className="skeleton h-5 w-12 rounded-full" />
+      </div>
+      <div className="skeleton h-8 w-28 rounded" />
+      <div className="skeleton h-3 w-24 rounded" />
+    </div>
+  );
+}
+
+export function ChartSkeleton({ height = 220 }: { height?: number }) {
+  return <div className="skeleton rounded-[10px] mx-4 my-3" style={{ height }} />;
+}
+
+export function TableSkeleton({ rows = 6 }: { rows?: number }) {
+  return (
+    <div className="flex flex-col divide-y" style={{ borderColor: 'var(--line)' }}>
+      {Array.from({ length: rows }).map((_, i) => (
+        <div key={i} className="flex items-center gap-4 px-5 py-4">
+          <div className="skeleton h-3 rounded flex-1" />
+          <div className="skeleton h-3 rounded w-24" />
+          <div className="skeleton h-3 rounded w-16" />
+          <div className="skeleton h-5 rounded-full w-14" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function IntentCardSkeleton() {
+  return (
+    <div className="card p-4 flex flex-col gap-3">
+      <div className="skeleton h-4 w-32 rounded" />
+      <div className="skeleton h-3 w-48 rounded" />
+      <div className="skeleton h-2 w-full rounded-full" />
+      <div className="flex justify-between">
+        <div className="skeleton h-6 w-20 rounded" />
+        <div className="skeleton h-6 w-16 rounded" />
+      </div>
+    </div>
+  );
+}
+
 export function LoadingBlock() {
   return (
     <div className="flex flex-col items-center justify-center py-20 gap-4 animate-fadeUp">

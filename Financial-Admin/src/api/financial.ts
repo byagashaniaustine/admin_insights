@@ -1,5 +1,5 @@
 import type { FinancialInsights } from '../types';
-import { cacheGet, cacheSet, cacheBust } from '../lib/cache';
+import { cacheGet, cacheGetStale, cacheIsFresh, cacheSet, cacheBust } from '../lib/cache';
 
 const BASE   = import.meta.env.VITE_FINANCIAL_BASE_URL || '';
 const SECRET = import.meta.env.VITE_FINANCIAL_SECRET ?? '';
@@ -8,13 +8,22 @@ function url(path: string): string {
   return BASE ? `${BASE}${path}` : `/financial-api${path}`;
 }
 
+const INSIGHTS_KEY = 'financial:insights';
+
 export function bustFinancialCache() {
   cacheBust('financial:');
 }
 
+export function peekFinancialInsights(): FinancialInsights | null {
+  return cacheGetStale<FinancialInsights>(INSIGHTS_KEY);
+}
+
+export function isFreshFinancialInsights(): boolean {
+  return cacheIsFresh(INSIGHTS_KEY);
+}
+
 export async function fetchFinancialInsights(): Promise<FinancialInsights> {
-  const key = 'financial:insights';
-  const hit = cacheGet<FinancialInsights>(key);
+  const hit = cacheGet<FinancialInsights>(INSIGHTS_KEY);
   if (hit) return hit;
 
   const res = await fetch(url('/insights'), {
@@ -22,6 +31,6 @@ export async function fetchFinancialInsights(): Promise<FinancialInsights> {
   });
   if (!res.ok) throw new Error(`Financial insights: ${res.status} ${res.statusText}`);
   const data: FinancialInsights = await res.json();
-  cacheSet(key, data);
+  cacheSet(INSIGHTS_KEY, data);
   return data;
 }

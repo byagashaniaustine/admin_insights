@@ -1,5 +1,5 @@
 import type { KulwaSummary, KulwaQuestionsResponse, KulwaUsersResponse, DayFilter, KulwaOverview, KulwaConversationsResponse, KulwaTopics } from '../types';
-import { cacheGet, cacheSet, cacheBust } from '../lib/cache';
+import { cacheGet, cacheGetStale, cacheIsFresh, cacheSet, cacheBust } from '../lib/cache';
 
 const BASE    = import.meta.env.VITE_KULWA_BASE_URL || '';
 const API_KEY = import.meta.env.VITE_KULWA_API_KEY ?? '';
@@ -15,6 +15,52 @@ function url(path: string): string {
 export function bustKulwaCache() {
   cacheBust('kulwa:');
 }
+
+// ─── Peek helpers (stale-while-revalidate) ────────────────────────
+
+export function peekKulwaOverview(days: number): KulwaOverview | null {
+  return cacheGetStale<KulwaOverview>(`kulwa:overview:${days}`);
+}
+export function isFreshKulwaOverview(days: number): boolean {
+  return cacheIsFresh(`kulwa:overview:${days}`);
+}
+
+export function peekKulwaSummary(days: DayFilter): KulwaSummary | null {
+  return cacheGetStale<KulwaSummary>(`kulwa:summary:${days}`);
+}
+export function isFreshKulwaSummary(days: DayFilter): boolean {
+  return cacheIsFresh(`kulwa:summary:${days}`);
+}
+
+export function peekKulwaQuestions(days: DayFilter, limit: number, offset: number, intent?: string): KulwaQuestionsResponse | null {
+  return cacheGetStale<KulwaQuestionsResponse>(`kulwa:questions:${days}:${limit}:${offset}:${intent ?? ''}`);
+}
+export function isFreshKulwaQuestions(days: DayFilter, limit: number, offset: number, intent?: string): boolean {
+  return cacheIsFresh(`kulwa:questions:${days}:${limit}:${offset}:${intent ?? ''}`);
+}
+
+export function peekKulwaUsers(days: DayFilter, limit: number, offset: number): KulwaUsersResponse | null {
+  return cacheGetStale<KulwaUsersResponse>(`kulwa:users:${days}:${limit}:${offset}`);
+}
+export function isFreshKulwaUsers(days: DayFilter, limit: number, offset: number): boolean {
+  return cacheIsFresh(`kulwa:users:${days}:${limit}:${offset}`);
+}
+
+export function peekKulwaTopics(days: number): KulwaTopics | null {
+  return cacheGetStale<KulwaTopics>(`kulwa:topics:${days}`);
+}
+export function isFreshKulwaTopics(days: number): boolean {
+  return cacheIsFresh(`kulwa:topics:${days}`);
+}
+
+export function peekKulwaConversations(days: number, limit: number, offset: number, status: string, intent: string, search: string): KulwaConversationsResponse | null {
+  return cacheGetStale<KulwaConversationsResponse>(`kulwa:conversations:${days}:${limit}:${offset}:${status}:${intent}:${search}`);
+}
+export function isFreshKulwaConversations(days: number, limit: number, offset: number, status: string, intent: string, search: string): boolean {
+  return cacheIsFresh(`kulwa:conversations:${days}:${limit}:${offset}:${status}:${intent}:${search}`);
+}
+
+// ─── Fetch functions ──────────────────────────────────────────────
 
 export async function fetchKulwaSummary(days: DayFilter): Promise<KulwaSummary> {
   const key = `kulwa:summary:${days}`;

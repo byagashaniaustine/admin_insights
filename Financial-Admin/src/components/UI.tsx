@@ -1,5 +1,34 @@
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 
+export function StatCardSkeleton() {
+  return (
+    <div className="card p-5 flex flex-col gap-3">
+      <div className="skeleton h-3 w-24 rounded" />
+      <div className="skeleton h-8 w-32 rounded" />
+      <div className="skeleton h-3 w-20 rounded" />
+    </div>
+  );
+}
+
+export function ChartSkeleton({ height = 220 }: { height?: number }) {
+  return <div className="skeleton rounded-[10px] mx-4 my-3" style={{ height }} />;
+}
+
+export function TableSkeleton({ rows = 6 }: { rows?: number }) {
+  return (
+    <div className="flex flex-col divide-y" style={{ borderColor: 'var(--line)' }}>
+      {Array.from({ length: rows }).map((_, i) => (
+        <div key={i} className="flex items-center gap-4 px-5 py-4">
+          <div className="skeleton h-3 rounded flex-1" />
+          <div className="skeleton h-3 rounded w-24" />
+          <div className="skeleton h-3 rounded w-16" />
+          <div className="skeleton h-5 rounded-full w-14" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function LoadingBlock() {
   return (
     <div className="flex flex-col items-center justify-center py-20 gap-4 animate-fadeUp">

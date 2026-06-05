@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useContext } from 'react';
 import { RefreshCw, AlertTriangle, Menu } from 'lucide-react';
 import type { KulwaTopics, IntentTopic } from '../types';
-import { fetchKulwaTopics, bustKulwaCache } from '../api/kulwa';
-import { LoadingBlock, ErrorBlock } from '../components/UI';
+import { fetchKulwaTopics, bustKulwaCache, peekKulwaTopics, isFreshKulwaTopics } from '../api/kulwa';
+import { ErrorBlock, IntentCardSkeleton } from '../components/UI';
 import { Sparkline } from '../components/Charts';
 import { AppContext } from '../context';
 
@@ -92,22 +92,28 @@ function IntentCard({ intent }: { intent: IntentTopic }) {
 export default function KulwaTopicsPage() {
   const { openSidebar } = useContext(AppContext);
   const [days, setDays]       = useState<DayOpt>(7);
-  const [data, setData]       = useState<KulwaTopics | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [data, setData]       = useState<KulwaTopics | null>(() => peekKulwaTopics(7));
+  const [loading, setLoading] = useState(!peekKulwaTopics(7));
   const [error, setError]     = useState<string | null>(null);
 
   const load = useCallback(async (bust = false) => {
-    if (bust) bustKulwaCache();
-    setLoading(true); setError(null);
+    if (bust) {
+      bustKulwaCache();
+    } else {
+      const stale = peekKulwaTopics(days);
+      if (stale) setData(stale);
+      if (isFreshKulwaTopics(days)) return;
+      if (!stale) setLoading(true);
+    }
+    setError(null);
     try {
-      const d = await fetchKulwaTopics(days);
-      setData(d);
+      setData(await fetchKulwaTopics(days));
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load');
+      if (!data) setError(e instanceof Error ? e.message : 'Failed to load');
     } finally {
       setLoading(false);
     }
-  }, [days]);
+  }, [days]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { load(); }, [load]);
 
@@ -134,13 +140,12 @@ export default function KulwaTopicsPage() {
           )}
         </div>
 
-        {/* Days toggle */}
         <div className="flex items-center gap-[3px] p-[3px] rounded-[8px]"
              style={{ background: 'var(--surface-2)', border: '1px solid var(--line)' }}>
           {DAY_OPTS.map(opt => {
             const isActive = days === opt.value;
             return (
-              <button key={opt.value} type="button" onClick={() => { setDays(opt.value); }}
+              <button key={opt.value} type="button" onClick={() => setDays(opt.value)}
                       className="rounded-[6px] text-[13px] font-semibold transition-all duration-150"
                       style={{
                         height: '32px', padding: '0 14px', border: 'none', cursor: 'pointer',
@@ -165,10 +170,15 @@ export default function KulwaTopicsPage() {
       <div className="flex-1 overflow-y-auto" style={{ background: 'var(--canvas)' }}>
         {error && !data ? (
           <div className="p-8"><ErrorBlock message={error} onRetry={load} /></div>
-        ) : loading && !data ? (
-          <LoadingBlock />
         ) : (
           <div className="p-6 space-y-5 max-w-[1600px] mx-auto">
+
+            {/* Skeleton */}
+            {loading && !data && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                {Array.from({ length: 6 }).map((_, i) => <IntentCardSkeleton key={i} />)}
+              </div>
+            )}
 
             {/* Needs-attention section */}
             {data && data.needs_attention.length > 0 && (
@@ -189,16 +199,11 @@ export default function KulwaTopicsPage() {
               </div>
             )}
 
-            {/* All intents grid */}
             {data && data.intents.length > 0 && (
               <div>
-                <h2 className="font-bold text-[14px] mb-3" style={{ color: 'var(--ink-2)' }}>
-                  All Intents
-                </h2>
+                <h2 className="font-bold text-[14px] mb-3" style={{ color: 'var(--ink-2)' }}>All Intents</h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                  {data.intents.map(intent => (
-                    <IntentCard key={intent.id} intent={intent} />
-                  ))}
+                  {data.intents.map(intent => <IntentCard key={intent.id} intent={intent} />)}
                 </div>
               </div>
             )}

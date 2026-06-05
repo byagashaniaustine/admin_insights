@@ -1,8 +1,11 @@
 import { useState, useEffect, useCallback, useContext } from 'react';
 import { RefreshCw, Search, Menu } from 'lucide-react';
 import type { KulwaConversation, KulwaConversationsResponse } from '../types';
-import { fetchKulwaConversations, bustKulwaCache } from '../api/kulwa';
-import { LoadingBlock, ErrorBlock, Pagination } from '../components/UI';
+import {
+  fetchKulwaConversations, bustKulwaCache,
+  peekKulwaConversations, isFreshKulwaConversations,
+} from '../api/kulwa';
+import { TableSkeleton, ErrorBlock, Pagination } from '../components/UI';
 import { AppContext } from '../context';
 
 type DayOpt = 7 | 30 | 90;
@@ -54,30 +57,36 @@ export default function KulwaConversationsPage() {
   const [search, setSearch]       = useState('');
   const [searchInput, setSearchInput] = useState('');
   const [offset, setOffset]       = useState(0);
-  const [result, setResult]       = useState<KulwaConversationsResponse | null>(null);
-  const [loading, setLoading]     = useState(false);
+  const [result, setResult]       = useState<KulwaConversationsResponse | null>(
+    () => peekKulwaConversations(7, LIMIT, 0, '', '', '')
+  );
+  const [loading, setLoading]     = useState(!peekKulwaConversations(7, LIMIT, 0, '', '', ''));
   const [error, setError]         = useState<string | null>(null);
-
-  // Collect unique intents from loaded data for the dropdown
   const [knownIntents, setKnownIntents] = useState<string[]>([]);
 
   const load = useCallback(async (bust = false) => {
-    if (bust) bustKulwaCache();
-    setLoading(true); setError(null);
+    if (bust) {
+      bustKulwaCache();
+    } else {
+      const stale = peekKulwaConversations(days, LIMIT, offset, status, intent, search);
+      if (stale) setResult(stale);
+      if (isFreshKulwaConversations(days, LIMIT, offset, status, intent, search)) return;
+      if (!stale) setLoading(true);
+    }
+    setError(null);
     try {
       const data = await fetchKulwaConversations(days, LIMIT, offset, status, intent, search);
       setResult(data);
-      // Collect intent names for dropdown
       setKnownIntents(prev => {
         const set = new Set([...prev, ...data.data.map(c => c.intent).filter(Boolean)]);
         return Array.from(set).sort();
       });
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load');
+      if (!result) setError(e instanceof Error ? e.message : 'Failed to load');
     } finally {
       setLoading(false);
     }
-  }, [days, offset, status, intent, search]);
+  }, [days, offset, status, intent, search]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { load(); }, [load]);
 
@@ -98,7 +107,6 @@ export default function KulwaConversationsPage() {
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
-      {/* Header / filter bar */}
       <div className="flex-shrink-0 px-6 py-4 flex flex-wrap items-center gap-3"
            style={{ background: 'var(--surface)', borderBottom: '1px solid var(--line)' }}>
 
@@ -119,7 +127,6 @@ export default function KulwaConversationsPage() {
           )}
         </div>
 
-        {/* Days toggle */}
         <div className="flex items-center gap-[3px] p-[3px] rounded-[8px]"
              style={{ background: 'var(--surface-2)', border: '1px solid var(--line)' }}>
           {DAY_OPTS.map(opt => {
@@ -139,7 +146,6 @@ export default function KulwaConversationsPage() {
           })}
         </div>
 
-        {/* Search */}
         <form onSubmit={handleSearchSubmit} className="flex items-center gap-1">
           <div className="relative">
             <Search size={13} className="absolute left-[10px] top-1/2 -translate-y-1/2" style={{ color: 'var(--ink-3)' }} />
@@ -158,7 +164,6 @@ export default function KulwaConversationsPage() {
           </div>
         </form>
 
-        {/* Status pills */}
         <div className="flex items-center gap-1">
           {(['', 'active', 'resolved'] as StatusFilter[]).map(s => {
             const label = s === '' ? 'All' : s.charAt(0).toUpperCase() + s.slice(1);
@@ -177,7 +182,6 @@ export default function KulwaConversationsPage() {
           })}
         </div>
 
-        {/* Intent dropdown */}
         <select
           value={intent}
           onChange={e => resetAndLoad({ intent: e.target.value })}
@@ -198,65 +202,62 @@ export default function KulwaConversationsPage() {
         </button>
       </div>
 
-      {/* Body */}
       <div className="flex-1 overflow-y-auto" style={{ background: 'var(--canvas)' }}>
         {error && !result ? (
           <div className="p-8"><ErrorBlock message={error} onRetry={load} /></div>
-        ) : loading && !result ? (
-          <LoadingBlock />
         ) : (
           <div className="card m-6 overflow-hidden animate-fadeUp">
-            <div className="overflow-x-auto">
-              <table className="w-full text-[13px]" style={{ borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr style={{ borderBottom: '1px solid var(--line)', background: 'var(--surface-2)' }}>
-                    {['Name', 'Channel', 'Intent', 'Messages', 'Duration', 'Started', 'Status'].map(h => (
-                      <th key={h} className="text-left px-5 py-3 text-[11px] font-bold uppercase tracking-[0.06em]"
-                          style={{ color: 'var(--ink-3)', whiteSpace: 'nowrap' }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.length === 0 ? (
-                    <tr>
-                      <td colSpan={7} className="px-5 py-12 text-center text-[13px]" style={{ color: 'var(--ink-3)' }}>
-                        No conversations found.
-                      </td>
-                    </tr>
-                  ) : rows.map((row, idx) => (
-                    <tr key={row.id}
-                        style={{ borderBottom: idx < rows.length - 1 ? '1px solid var(--line)' : 'none' }}
-                        onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'}
-                        onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}>
-                      <td className="px-5 py-3">
-                        <p className="font-semibold" style={{ color: 'var(--ink)' }}>{row.name}</p>
-                      </td>
-                      <td className="px-5 py-3"><ChannelBadge channel={row.channel} /></td>
-                      <td className="px-5 py-3">
-                        <span className="inline-flex rounded-full text-[11px] font-semibold"
-                              style={{ padding: '2px 9px', background: 'var(--accent-soft)', color: 'var(--accent-hover)' }}>
-                          {row.intent || '—'}
-                        </span>
-                      </td>
-                      <td className="px-5 py-3 font-mono tabular-nums" style={{ color: 'var(--ink-2)' }}>
-                        {row.messages}
-                      </td>
-                      <td className="px-5 py-3" style={{ color: 'var(--ink-3)', whiteSpace: 'nowrap' }}>{row.duration}</td>
-                      <td className="px-5 py-3" style={{ color: 'var(--ink-3)', whiteSpace: 'nowrap' }}>{row.started}</td>
-                      <td className="px-5 py-3"><StatusPill status={row.status} /></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            {result && (
-              <Pagination
-                offset={offset}
-                limit={LIMIT}
-                total={result.total}
-                onPage={setOffset}
-                unit="conversations"
-              />
+            {loading && !result ? (
+              <TableSkeleton rows={8} />
+            ) : (
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-[13px]" style={{ borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid var(--line)', background: 'var(--surface-2)' }}>
+                        {['Name', 'Channel', 'Intent', 'Messages', 'Duration', 'Started', 'Status'].map(h => (
+                          <th key={h} className="text-left px-5 py-3 text-[11px] font-bold uppercase tracking-[0.06em]"
+                              style={{ color: 'var(--ink-3)', whiteSpace: 'nowrap' }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rows.length === 0 ? (
+                        <tr>
+                          <td colSpan={7} className="px-5 py-12 text-center text-[13px]" style={{ color: 'var(--ink-3)' }}>
+                            No conversations found.
+                          </td>
+                        </tr>
+                      ) : rows.map((row, idx) => (
+                        <tr key={row.id}
+                            style={{ borderBottom: idx < rows.length - 1 ? '1px solid var(--line)' : 'none' }}
+                            onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'}
+                            onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}>
+                          <td className="px-5 py-3">
+                            <p className="font-semibold" style={{ color: 'var(--ink)' }}>{row.name}</p>
+                          </td>
+                          <td className="px-5 py-3"><ChannelBadge channel={row.channel} /></td>
+                          <td className="px-5 py-3">
+                            <span className="inline-flex rounded-full text-[11px] font-semibold"
+                                  style={{ padding: '2px 9px', background: 'var(--accent-soft)', color: 'var(--accent-hover)' }}>
+                              {row.intent || '—'}
+                            </span>
+                          </td>
+                          <td className="px-5 py-3 font-mono tabular-nums" style={{ color: 'var(--ink-2)' }}>
+                            {row.messages}
+                          </td>
+                          <td className="px-5 py-3" style={{ color: 'var(--ink-3)', whiteSpace: 'nowrap' }}>{row.duration}</td>
+                          <td className="px-5 py-3" style={{ color: 'var(--ink-3)', whiteSpace: 'nowrap' }}>{row.started}</td>
+                          <td className="px-5 py-3"><StatusPill status={row.status} /></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {result && (
+                  <Pagination offset={offset} limit={LIMIT} total={result.total} onPage={setOffset} unit="conversations" />
+                )}
+              </>
             )}
           </div>
         )}

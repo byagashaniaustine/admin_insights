@@ -4,10 +4,10 @@ import {
 } from 'recharts';
 import { AlertTriangle, Activity } from 'lucide-react';
 import type { KulwaOverview } from '../types';
-import { fetchKulwaOverview, bustKulwaCache } from '../api/kulwa';
+import { fetchKulwaOverview, bustKulwaCache, peekKulwaOverview, isFreshKulwaOverview } from '../api/kulwa';
 import FilterBar from '../components/FilterBar';
 import { Sparkline } from '../components/Charts';
-import { LoadingBlock, ErrorBlock, SectionCard } from '../components/UI';
+import { ChartSkeleton, KpiCardSkeleton, TableSkeleton, ErrorBlock, SectionCard } from '../components/UI';
 
 type DayOpt = 7 | 30 | 90;
 
@@ -32,27 +32,32 @@ function containmentColor(rate: number) {
 }
 
 export default function KulwaPage() {
-  const [days, setDays]       = useState<DayOpt>(7);
-  const [data, setData]       = useState<KulwaOverview | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [days, setDays] = useState<DayOpt>(7);
+  const [data, setData] = useState<KulwaOverview | null>(() => peekKulwaOverview(7));
+  const [loading, setLoading] = useState(!peekKulwaOverview(7));
   const [error, setError]     = useState<string | null>(null);
 
   const load = useCallback(async (bust = false) => {
-    if (bust) bustKulwaCache();
-    setLoading(true); setError(null);
+    if (bust) {
+      bustKulwaCache();
+    } else {
+      const stale = peekKulwaOverview(days);
+      if (stale) setData(stale);
+      if (isFreshKulwaOverview(days)) return;
+      if (!stale) setLoading(true);
+    }
+    setError(null);
     try {
-      const d = await fetchKulwaOverview(days);
-      setData(d);
+      setData(await fetchKulwaOverview(days));
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load');
+      if (!data) setError(e instanceof Error ? e.message : 'Failed to load');
     } finally {
       setLoading(false);
     }
-  }, [days]);
+  }, [days]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { load(); }, [load]);
 
-  // Build recharts data for daily chart
   const chartData = data
     ? data.days.map((d, i) => ({
         key: d.key,
@@ -112,7 +117,14 @@ export default function KulwaPage() {
 
             {/* KPI cards */}
             <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
-              {data ? (
+              {loading && !data ? (
+                <>
+                  <KpiCardSkeleton />
+                  <KpiCardSkeleton />
+                  <KpiCardSkeleton />
+                  <KpiCardSkeleton />
+                </>
+              ) : data ? (
                 data.kpis.map((kpi) => (
                   <div key={kpi.id} className="card p-4 animate-fadeUp">
                     <div className="flex items-center justify-between mb-2">
@@ -134,17 +146,13 @@ export default function KulwaPage() {
                     </div>
                   </div>
                 ))
-              ) : (
-                [...Array(4)].map((_, i) => (
-                  <div key={i} className="card animate-shimmer" style={{ height: '110px' }} />
-                ))
-              )}
+              ) : null}
             </div>
 
             {/* Daily messages chart */}
             <SectionCard title="Daily Activity"
               description={data ? `${data.period.start} – ${data.period.end}` : undefined}>
-              {!data ? <LoadingBlock /> : (
+              {loading && !data ? <ChartSkeleton /> : data ? (
                 <div className="px-2 pt-2 pb-4">
                   <ResponsiveContainer width="100%" height={220}>
                     <AreaChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
@@ -171,60 +179,62 @@ export default function KulwaPage() {
                     </AreaChart>
                   </ResponsiveContainer>
                 </div>
-              )}
+              ) : null}
             </SectionCard>
 
             {/* Intents table */}
             <SectionCard title="Intent Breakdown"
               description={data ? `${data.intents.length} intents tracked` : undefined}>
-              {!data ? <LoadingBlock /> : data.intents.length === 0 ? (
-                <div className="py-12 text-center text-[13px]" style={{ color: 'var(--ink-3)' }}>No intent data yet.</div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-[13px]" style={{ borderCollapse: 'collapse' }}>
-                    <thead>
-                      <tr style={{ borderBottom: '1px solid var(--line)', background: 'var(--surface-2)' }}>
-                        {['Intent', 'Count', 'Containment', 'Avg Msgs', 'Trend'].map((h) => (
-                          <th key={h} className="text-left px-5 py-3 text-[11px] font-bold uppercase tracking-[0.06em]"
-                              style={{ color: 'var(--ink-3)' }}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {data.intents.map((intent, idx) => (
-                        <tr key={intent.id}
-                            style={{ borderBottom: idx < data.intents.length - 1 ? '1px solid var(--line)' : 'none' }}
-                            onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'}
-                            onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}>
-                          <td className="px-5 py-3">
-                            <p className="font-semibold" style={{ color: 'var(--ink)' }}>{intent.name}</p>
-                            {intent.desc && (
-                              <p className="text-[11.5px] mt-0.5 line-clamp-1" style={{ color: 'var(--ink-3)' }}>{intent.desc}</p>
-                            )}
-                          </td>
-                          <td className="px-5 py-3 font-mono font-semibold tabular-nums" style={{ color: 'var(--ink-2)' }}>
-                            {intent.count.toLocaleString()}
-                          </td>
-                          <td className="px-5 py-3">
-                            <span className="font-bold" style={{ color: containmentColor(intent.containment) }}>
-                              {(intent.containment * 100).toFixed(0)}%
-                            </span>
-                          </td>
-                          <td className="px-5 py-3 font-mono tabular-nums" style={{ color: 'var(--ink-2)' }}>
-                            {intent.avg_msgs.toFixed(1)}
-                          </td>
-                          <td className="px-5 py-3">
-                            <div className="flex items-center gap-2">
-                              <Sparkline data={intent.trend} width={60} height={24} />
-                              <DeltaChip pct={intent.delta_pct} dir={intent.dir} goodDir="up" />
-                            </div>
-                          </td>
+              {loading && !data ? <TableSkeleton rows={5} /> : data ? (
+                data.intents.length === 0 ? (
+                  <div className="py-12 text-center text-[13px]" style={{ color: 'var(--ink-3)' }}>No intent data yet.</div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-[13px]" style={{ borderCollapse: 'collapse' }}>
+                      <thead>
+                        <tr style={{ borderBottom: '1px solid var(--line)', background: 'var(--surface-2)' }}>
+                          {['Intent', 'Count', 'Containment', 'Avg Msgs', 'Trend'].map((h) => (
+                            <th key={h} className="text-left px-5 py-3 text-[11px] font-bold uppercase tracking-[0.06em]"
+                                style={{ color: 'var(--ink-3)' }}>{h}</th>
+                          ))}
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+                      </thead>
+                      <tbody>
+                        {data.intents.map((intent, idx) => (
+                          <tr key={intent.id}
+                              style={{ borderBottom: idx < data.intents.length - 1 ? '1px solid var(--line)' : 'none' }}
+                              onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'}
+                              onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}>
+                            <td className="px-5 py-3">
+                              <p className="font-semibold" style={{ color: 'var(--ink)' }}>{intent.name}</p>
+                              {intent.desc && (
+                                <p className="text-[11.5px] mt-0.5 line-clamp-1" style={{ color: 'var(--ink-3)' }}>{intent.desc}</p>
+                              )}
+                            </td>
+                            <td className="px-5 py-3 font-mono font-semibold tabular-nums" style={{ color: 'var(--ink-2)' }}>
+                              {intent.count.toLocaleString()}
+                            </td>
+                            <td className="px-5 py-3">
+                              <span className="font-bold" style={{ color: containmentColor(intent.containment) }}>
+                                {(intent.containment * 100).toFixed(0)}%
+                              </span>
+                            </td>
+                            <td className="px-5 py-3 font-mono tabular-nums" style={{ color: 'var(--ink-2)' }}>
+                              {intent.avg_msgs.toFixed(1)}
+                            </td>
+                            <td className="px-5 py-3">
+                              <div className="flex items-center gap-2">
+                                <Sparkline data={intent.trend} width={60} height={24} />
+                                <DeltaChip pct={intent.delta_pct} dir={intent.dir} goodDir="up" />
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )
+              ) : null}
             </SectionCard>
 
           </div>
