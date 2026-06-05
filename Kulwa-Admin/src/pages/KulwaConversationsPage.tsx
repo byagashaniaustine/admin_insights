@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useContext } from 'react';
 import { RefreshCw, Search, Menu } from 'lucide-react';
-import type { KulwaConversation, KulwaConversationsResponse } from '../types';
+import type { KulwaConversation, KulwaConversationsResponse, ClosingState } from '../types';
 import {
   fetchKulwaConversations, bustKulwaCache,
   peekKulwaConversations, isFreshKulwaConversations,
@@ -47,6 +47,30 @@ function StatusPill({ status }: { status: string }) {
       {status}
     </span>
   );
+}
+
+const CLOSING_STATE_META: Record<ClosingState, { label: string; bg: string; color: string }> = {
+  active:           { label: 'Active',          bg: '#E6F7EC', color: '#008833' },
+  satisfied:        { label: 'Satisfied',        bg: '#EEF2FF', color: '#4338CA' },
+  intent_prompted:  { label: 'Action prompted',  bg: '#F0FDF4', color: '#16A34A' },
+  abandoned:        { label: 'Abandoned',        bg: '#FFF7ED', color: '#C2410C' },
+  resolved:         { label: 'Resolved',         bg: 'var(--surface-2)', color: 'var(--ink-3)' },
+};
+
+function ClosingStateBadge({ state }: { state: ClosingState }) {
+  const m = CLOSING_STATE_META[state] ?? CLOSING_STATE_META.resolved;
+  return (
+    <span className="inline-flex rounded-full text-[11px] font-bold whitespace-nowrap"
+          style={{ padding: '2px 9px', background: m.bg, color: m.color }}>
+      {m.label}
+    </span>
+  );
+}
+
+function fmtReplyMs(ms: number | null): string {
+  if (!ms) return '—';
+  if (ms < 1000) return `${ms}ms`;
+  return `${(ms / 1000).toFixed(1)}s`;
 }
 
 export default function KulwaConversationsPage() {
@@ -215,7 +239,7 @@ export default function KulwaConversationsPage() {
                   <table className="w-full text-[13px]" style={{ borderCollapse: 'collapse' }}>
                     <thead>
                       <tr style={{ borderBottom: '1px solid var(--line)', background: 'var(--surface-2)' }}>
-                        {['Name', 'Channel', 'Intent', 'Messages', 'Duration', 'Started', 'Status'].map(h => (
+                        {['Name', 'Channel', 'Intent', 'Messages', 'Duration', 'Started', 'Outcome', 'Avg Reply'].map(h => (
                           <th key={h} className="text-left px-5 py-3 text-[11px] font-bold uppercase tracking-[0.06em]"
                               style={{ color: 'var(--ink-3)', whiteSpace: 'nowrap' }}>{h}</th>
                         ))}
@@ -224,7 +248,7 @@ export default function KulwaConversationsPage() {
                     <tbody>
                       {rows.length === 0 ? (
                         <tr>
-                          <td colSpan={7} className="px-5 py-12 text-center text-[13px]" style={{ color: 'var(--ink-3)' }}>
+                          <td colSpan={9} className="px-5 py-12 text-center text-[13px]" style={{ color: 'var(--ink-3)' }}>
                             No conversations found.
                           </td>
                         </tr>
@@ -248,7 +272,12 @@ export default function KulwaConversationsPage() {
                           </td>
                           <td className="px-5 py-3" style={{ color: 'var(--ink-3)', whiteSpace: 'nowrap' }}>{row.duration}</td>
                           <td className="px-5 py-3" style={{ color: 'var(--ink-3)', whiteSpace: 'nowrap' }}>{row.started}</td>
-                          <td className="px-5 py-3"><StatusPill status={row.status} /></td>
+                          <td className="px-5 py-3">
+                            <ClosingStateBadge state={(row.closing_state || 'resolved') as ClosingState} />
+                          </td>
+                          <td className="px-5 py-3 font-mono tabular-nums text-[12px]" style={{ color: 'var(--ink-3)', whiteSpace: 'nowrap' }}>
+                            {fmtReplyMs(row.avg_reply_ms)}
+                          </td>
                         </tr>
                       ))}
                     </tbody>

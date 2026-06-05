@@ -3,7 +3,7 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts';
 import { AlertTriangle, Activity } from 'lucide-react';
-import type { KulwaOverview } from '../types';
+import type { KulwaOverview, SessionStats } from '../types';
 import { fetchKulwaOverview, bustKulwaCache, peekKulwaOverview, isFreshKulwaOverview } from '../api/kulwa';
 import FilterBar from '../components/FilterBar';
 import { Sparkline } from '../components/Charts';
@@ -236,6 +236,51 @@ export default function KulwaPage() {
                 )
               ) : null}
             </SectionCard>
+
+            {/* Conversation Outcomes — standalone cards row */}
+            {(data?.session_stats || !data) && (
+              <>
+                <p className="text-[11px] font-bold uppercase tracking-[0.08em] px-1 -mb-1"
+                   style={{ color: 'var(--ink-3)' }}>Conversation Outcomes</p>
+                <div className="grid grid-cols-2 xl:grid-cols-5 gap-4">
+                  {([
+                    { key: 'active',          label: 'Active',          desc: 'Live right now',          accent: '#00AA40', soft: '#E6F7EC' },
+                    { key: 'satisfied',       label: 'Satisfied',       desc: 'User confirmed happy',    accent: '#4338CA', soft: '#EEF2FF' },
+                    { key: 'intent_prompted', label: 'Action prompted', desc: 'Bot guided to next step', accent: '#0284C7', soft: '#E0F2FE' },
+                    { key: 'resolved',        label: 'Resolved',        desc: 'Ended normally',          accent: 'var(--ink-3)', soft: 'var(--surface-2)' },
+                    { key: 'abandoned',       label: 'Abandoned',       desc: 'User went silent',        accent: '#C2410C', soft: '#FFF7ED' },
+                  ] as { key: keyof SessionStats; label: string; desc: string; accent: string; soft: string }[]).map(({ key, label, desc, accent, soft }) => {
+                    const count = data ? (data.session_stats[key] as number) : 0;
+                    const total = data
+                      ? data.session_stats.active + data.session_stats.satisfied + data.session_stats.intent_prompted + data.session_stats.resolved + data.session_stats.abandoned
+                      : 0;
+                    const pct = total > 0 ? Math.round(count / total * 100) : 0;
+                    const barW = `${pct}%`;
+                    return data ? (
+                      <div key={key} className="card p-4 flex flex-col gap-2 animate-fadeUp">
+                        <div className="flex items-center justify-between">
+                          <p className="text-[11px] font-bold uppercase tracking-[0.07em]"
+                             style={{ color: accent }}>{label}</p>
+                          <span className="text-[11px] font-bold rounded-full px-2 py-[2px]"
+                                style={{ background: soft, color: accent }}>{pct}%</span>
+                        </div>
+                        <p className="text-[30px] font-extrabold leading-none tabular-nums"
+                           style={{ color: 'var(--ink)' }}>{count.toLocaleString()}</p>
+                        <p className="text-[11.5px]" style={{ color: 'var(--ink-3)' }}>{desc}</p>
+                        {/* progress bar */}
+                        <div className="h-[3px] rounded-full overflow-hidden mt-auto"
+                             style={{ background: 'var(--line)' }}>
+                          <div className="h-full rounded-full transition-all duration-500"
+                               style={{ width: barW, background: accent }} />
+                        </div>
+                      </div>
+                    ) : (
+                      <div key={key} className="card animate-shimmer" style={{ height: 130 }} />
+                    );
+                  })}
+                </div>
+              </>
+            )}
 
           </div>
         )}

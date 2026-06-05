@@ -12,6 +12,12 @@ function url(path: string): string {
   return BASE ? `${BASE}${path}` : `/kulwa-api${path}`;
 }
 
+function fetchWithTimeout(input: string, init: RequestInit, ms = 30_000): Promise<Response> {
+  const ctrl = new AbortController();
+  const tid = setTimeout(() => ctrl.abort(), ms);
+  return fetch(input, { ...init, signal: ctrl.signal }).finally(() => clearTimeout(tid));
+}
+
 export function bustKulwaCache() {
   cacheBust('kulwa:');
 }
@@ -68,7 +74,7 @@ export async function fetchKulwaSummary(days: DayFilter): Promise<KulwaSummary> 
   if (hit) return hit;
 
   const params = days ? `?days=${days}` : '';
-  const res = await fetch(url(`/insights/summary${params}`), { headers: headers() });
+  const res = await fetchWithTimeout(url(`/insights/summary${params}`), { headers: headers() });
   if (!res.ok) throw new Error(`Kulwa summary: ${res.status} ${res.statusText}`);
   const data: KulwaSummary = await res.json();
   cacheSet(key, data);
@@ -91,7 +97,7 @@ export async function fetchKulwaQuestions(
   params.set('limit',  String(limit));
   params.set('offset', String(offset));
 
-  const res = await fetch(url(`/insights/questions?${params}`), { headers: headers() });
+  const res = await fetchWithTimeout(url(`/insights/questions?${params}`), { headers: headers() });
   if (!res.ok) throw new Error(`Kulwa questions: ${res.status} ${res.statusText}`);
   const data: KulwaQuestionsResponse = await res.json();
   cacheSet(key, data);
@@ -112,7 +118,7 @@ export async function fetchKulwaUsers(
   params.set('limit',  String(limit));
   params.set('offset', String(offset));
 
-  const res = await fetch(url(`/insights/users?${params}`), { headers: headers() });
+  const res = await fetchWithTimeout(url(`/insights/users?${params}`), { headers: headers() });
   if (!res.ok) throw new Error(`Kulwa users: ${res.status} ${res.statusText}`);
   const data: KulwaUsersResponse = await res.json();
   cacheSet(key, data);
@@ -124,7 +130,7 @@ export async function fetchKulwaOverview(days: number): Promise<KulwaOverview> {
   const hit = cacheGet<KulwaOverview>(key);
   if (hit) return hit;
 
-  const res = await fetch(url(`/insights/overview?days=${days}`), { headers: headers() });
+  const res = await fetchWithTimeout(url(`/insights/overview?days=${days}`), { headers: headers() });
   if (!res.ok) throw new Error(`Kulwa overview: ${res.status} ${res.statusText}`);
   const data: KulwaOverview = await res.json();
   cacheSet(key, data);
@@ -151,7 +157,7 @@ export async function fetchKulwaConversations(
   if (intent) params.set('intent', intent);
   if (search) params.set('search', search);
 
-  const res = await fetch(url(`/insights/conversations?${params}`), { headers: headers() });
+  const res = await fetchWithTimeout(url(`/insights/conversations?${params}`), { headers: headers() });
   if (!res.ok) throw new Error(`Kulwa conversations: ${res.status} ${res.statusText}`);
   const data: KulwaConversationsResponse = await res.json();
   cacheSet(key, data);
@@ -163,9 +169,21 @@ export async function fetchKulwaTopics(days: number): Promise<KulwaTopics> {
   const hit = cacheGet<KulwaTopics>(key);
   if (hit) return hit;
 
-  const res = await fetch(url(`/insights/topics?days=${days}`), { headers: headers() });
+  const res = await fetchWithTimeout(url(`/insights/topics?days=${days}`), { headers: headers() });
   if (!res.ok) throw new Error(`Kulwa topics: ${res.status} ${res.statusText}`);
   const data: KulwaTopics = await res.json();
   cacheSet(key, data);
   return data;
+}
+
+/** Prefetch all default views in parallel. Resolves when all settle (never rejects). */
+export function prefetchKulwa(): Promise<void> {
+  return Promise.allSettled([
+    fetchKulwaOverview(7),
+    fetchKulwaSummary(7),
+    fetchKulwaQuestions(7, 50, 0),
+    fetchKulwaUsers(7, 50, 0),
+    fetchKulwaTopics(7),
+    fetchKulwaConversations(7, 50, 0, '', '', ''),
+  ]).then(() => {});
 }

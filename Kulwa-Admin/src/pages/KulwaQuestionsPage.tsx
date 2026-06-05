@@ -12,12 +12,12 @@ import { TableSkeleton, ErrorBlock, SectionCard } from '../components/UI';
 const PAGE = 50;
 
 export default function KulwaQuestionsPage() {
-  const [days, setDays]       = useState<DayFilter>(30);
+  const [days, setDays]       = useState<DayFilter>(7);
   const [intent, setIntent]   = useState('');
   const [offset, setOffset]   = useState(0);
-  const [result, setResult]   = useState<KulwaQuestionsResponse | null>(() => peekKulwaQuestions(30, PAGE, 0));
-  const [summary, setSummary] = useState<KulwaSummary | null>(() => peekKulwaSummary(30));
-  const [loading, setLoading] = useState(!peekKulwaQuestions(30, PAGE, 0));
+  const [result, setResult]   = useState<KulwaQuestionsResponse | null>(() => peekKulwaQuestions(7, PAGE, 0));
+  const [summary, setSummary] = useState<KulwaSummary | null>(() => peekKulwaSummary(7));
+  const [loading, setLoading] = useState(!peekKulwaQuestions(7, PAGE, 0));
   const [error, setError]     = useState<string | null>(null);
 
   const load = useCallback(async (bust = false) => {

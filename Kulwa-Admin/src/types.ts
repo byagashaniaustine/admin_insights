@@ -51,6 +51,14 @@ export interface IntentTopic {
   trend: number[]; delta_pct: number; dir: 'up' | 'down';
 }
 
+export interface SessionStats {
+  active: number;
+  satisfied: number;
+  intent_prompted: number;
+  abandoned: number;
+  resolved: number;
+}
+
 export interface KulwaOverview {
   period: { days: number; start: string | null; end: string | null };
   days: { key: string; date: string; iso: string }[];
@@ -58,6 +66,8 @@ export interface KulwaOverview {
   unique_users_series: number[];
   heatmap: number[][];
   total_conversations: number; total_unique_users: number; containment_rate: number;
+  avg_reply_ms: number | null;
+  session_stats: SessionStats;
   kpis: KpiCard[];
   live_status: { status: string; active_now: number; in_queue: number; avg_wait: string; agents_online: number; last_updated: string };
   intents: IntentTopic[];
@@ -66,10 +76,15 @@ export interface KulwaOverview {
   wa_business: { name: string; number: string };
 }
 
+export type ClosingState = 'active' | 'satisfied' | 'intent_prompted' | 'abandoned' | 'resolved';
+
 export interface KulwaConversation {
   id: string; name: string; phone: string; channel: string;
   window_open: boolean; intent: string; intent_id: string;
-  messages: number; duration: string; started: string; status: string; sentiment: null;
+  messages: number; duration: string; started: string; status: string;
+  closing_state: ClosingState;
+  avg_reply_ms: number | null;
+  sentiment: null;
 }
 
 export interface KulwaConversationsResponse {

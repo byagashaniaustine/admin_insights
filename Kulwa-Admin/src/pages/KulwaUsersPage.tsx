@@ -8,10 +8,10 @@ import { TableSkeleton, ErrorBlock, SectionCard } from '../components/UI';
 const LIMIT = 50;
 
 export default function KulwaUsersPage() {
-  const [days, setDays]       = useState<DayFilter>(30);
+  const [days, setDays]       = useState<DayFilter>(7);
   const [offset, setOffset]   = useState(0);
-  const [users, setUsers]     = useState<KulwaUsersResponse | null>(() => peekKulwaUsers(30, LIMIT, 0));
-  const [loading, setLoading] = useState(!peekKulwaUsers(30, LIMIT, 0));
+  const [users, setUsers]     = useState<KulwaUsersResponse | null>(() => peekKulwaUsers(7, LIMIT, 0));
+  const [loading, setLoading] = useState(!peekKulwaUsers(7, LIMIT, 0));
   const [error, setError]     = useState<string | null>(null);
 
   const load = useCallback(async (bust = false) => {
